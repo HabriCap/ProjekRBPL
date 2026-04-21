@@ -358,6 +358,7 @@ if ($_SESSION['role'] != 'kasir') {
       </a>
 
       <!-- Menu 4 -->
+       <a href="arsip_laporan.php" style="text-decoration:none; color:inherit;">
       <div class="menu-card">
         <div class="menu-left">
           <div class="menu-icon">
@@ -369,6 +370,7 @@ if ($_SESSION['role'] != 'kasir') {
           <img src="UI_GENERAL/logo_foward.png" alt="" />
         </div>
       </div>
+      </a>
     </div>
   </body>
 </html>
