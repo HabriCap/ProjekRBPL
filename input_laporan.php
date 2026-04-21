@@ -1,15 +1,39 @@
 <?php
 include "koneksi.php";
 
+/* HANDLE SUBMIT */
+if(isset($_POST['simpan_laporan'])){
+    $id_nota = $_POST['id_nota'];
+
+    if(!empty($id_nota)){
+
+        // CEK BIAR TIDAK DOUBLE
+        $cek = mysqli_query($koneksi,"SELECT * FROM laporan WHERE id_nota='$id_nota'");
+
+        if(mysqli_num_rows($cek) == 0){
+
+            $insert = mysqli_query($koneksi,"
+            INSERT INTO laporan (id_nota, tanggal_laporan)
+            VALUES ('$id_nota', NOW())
+            ");
+
+            if(!$insert){
+                die("Query gagal: ".mysqli_error($koneksi));
+            }
+        }
+    }
+
+    header("Location: success_check_barang.php");
+    exit();
+}
+
 /* ambil nota yang sudah dicek */
 $data_nota = mysqli_query($koneksi,"
 SELECT DISTINCT n.*
 FROM nota n
 JOIN barang b ON b.id_nota = n.id_nota
 WHERE n.status = 'Sudah Dicek'
-AND (b.status_retur IS NULL OR b.status_retur!='sudah')
 ");
-
 ?>
 
 <!DOCTYPE html>
@@ -182,9 +206,12 @@ margin-top:15px;
 
 <?php $no=1; while($n = mysqli_fetch_assoc($data_nota)) { ?>
 
+<form method="POST">
+
+<input type="hidden" name="id_nota" value="<?= $n['id_nota'] ?>">
+
 <div class="card">
 
-<!-- COLLAPSE -->
 <div>
 <label>Nomer Nota</label>
 <input class="input" value="<?= $n['nomor_nota'] ?>">
@@ -272,13 +299,14 @@ $r = mysqli_fetch_assoc($retur);
 
 <?php } ?>
 
-<button class="submit">Simpan Hasil Laporan</button>
+<button type="submit" class="submit" name="simpan_laporan">Simpan Hasil Laporan</button>
 
 </div>
 
 </div>
 
-<!-- tombol luar -->
+</form>
+
 <div class="expand" id="btn-outside-<?= $no ?>" style="display:none;" onclick="toggle(<?= $no ?>)">⌃</div>
 
 <?php $no++; } ?>

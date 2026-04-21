@@ -358,7 +358,7 @@ cursor:pointer;
 
 <div class="form-group">
 <label>Nomer Nota</label>
-<input type="text" name="nomor_nota" placeholder="NBM/2025/06/045" required>
+<input type="text" name="nomor_nota" required>
 </div>
 
 <div class="form-group">
