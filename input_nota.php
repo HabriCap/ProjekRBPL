@@ -87,8 +87,8 @@ if (isset($_POST['submit'])) {
     $errors[] = "Foto nota wajib diunggah.";
   } else {
     $file        = $_FILES['foto_nota'];
-    $max_size    = 5 * 1024 * 1024; // 5 MB
-    $allowed_ext = ['jpg', 'jpeg', 'png'];
+    $max_size    = 5 * 1024 * 1024;
+    $allowed_ext  = ['jpg', 'jpeg', 'png'];
     $allowed_mime = ['image/jpeg', 'image/png'];
 
     $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
@@ -99,7 +99,6 @@ if (isset($_POST['submit'])) {
     } elseif (!in_array($ext, $allowed_ext) || !in_array($mime, $allowed_mime)) {
       $errors[] = "Format foto tidak valid. Hanya JPG dan PNG yang diizinkan.";
     } else {
-      // Rename dengan uniqid agar tidak bisa ditebak / ditimpa
       $foto_nama_db = uniqid('nota_', true) . '.' . $ext;
       $upload_path  = "uploads/" . $foto_nama_db;
 
@@ -112,7 +111,6 @@ if (isset($_POST['submit'])) {
 
   if (empty($errors)) {
 
-  //insert nota
     $stmt_nota = mysqli_prepare(
       $koneksi,
       "INSERT INTO nota (nomor_nota, tanggal_nota, supplier, status, foto)
@@ -123,7 +121,6 @@ if (isset($_POST['submit'])) {
     $id_nota = mysqli_insert_id($koneksi);
     mysqli_stmt_close($stmt_nota);
 
-  //insert barang terkait nota
     $stmt_barang = mysqli_prepare(
       $koneksi,
       "INSERT INTO barang (id_nota, nama_barang, jumlah_barang, jenis_barang, status_barang)
@@ -153,269 +150,370 @@ if (isset($_POST['submit'])) {
 
 <style>
 
-*{
-margin:0;
-padding:0;
-box-sizing:border-box;
-font-family:"Poppins",sans-serif;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
 }
 
-body{
-background:#efefef;
+body {
+  background: #efefef;
 }
 
 /* HEADER */
-
-.header{
-background:#3f7aa3;
-color:white;
-padding:18px 20px;
-position:relative;
-display:flex;
-align-items:center;
-gap:12px;
-overflow:hidden;
+.header {
+  background: #3f7aa3;
+  color: white;
+  padding: 18px 20px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
 }
 
-.back-btn{
-width:38px;
-height:38px;
-border-radius:50%;
-background:#48b5c1;
-display:flex;
-align-items:center;
-justify-content:center;
-cursor:pointer;
-border:none;
-flex-shrink:0;
-transition:background 0.2s;
+.back-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #48b5c1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  flex-shrink: 0;
+  transition: background 0.2s;
 }
 
-.back-btn:hover{
-background:#3aa0ac;
+.back-btn:hover {
+  background: #3aa0ac;
 }
 
-.back-btn img{
-width:20px;
+.back-btn img {
+  width: 20px;
 }
 
-.header h2{
-font-size:18px;
-font-weight:500;
+.header h2 {
+  font-size: 18px;
+  font-weight: 500;
 }
 
-.header-circle-big{
-position:absolute;
-width:90px;
-height:90px;
-background:#5bb7c5;
-border-radius:50%;
-right:-20px;
-top:10px;
-pointer-events:none;
+.header-circle-big {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  background: #5bb7c5;
+  border-radius: 50%;
+  right: -20px;
+  top: 10px;
+  pointer-events: none;
 }
 
-.header-circle-small{
-position:absolute;
-width:45px;
-height:45px;
-background:#5bb7c5;
-border-radius:50%;
-left:-11px;
-top:50px;
-pointer-events:none;
+.header-circle-small {
+  position: absolute;
+  width: 45px;
+  height: 45px;
+  background: #5bb7c5;
+  border-radius: 50%;
+  left: -11px;
+  top: 50px;
+  pointer-events: none;
 }
 
-.header-circle-small_2{
-position:absolute;
-width:18px;
-height:18px;
-background:#519eaa;
-border-radius:50%;
-left:0;
-top:22px;
-pointer-events:none;
+.header-circle-small_2 {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: #519eaa;
+  border-radius: 50%;
+  left: 0;
+  top: 22px;
+  pointer-events: none;
 }
 
-.container{
-padding:25px 20px 80px;
+.container {
+  padding: 25px 20px 80px;
 }
 
-.error-box{
-background:#fff0f0;
-border:1px solid #f5c2c7;
-border-radius:14px;
-padding:14px 16px;
-margin-bottom:18px;
+.error-box {
+  background: #fff0f0;
+  border: 1px solid #f5c2c7;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
 }
 
-.error-box p{
-font-size:13px;
-font-weight:600;
-color:#842029;
-margin-bottom:6px;
+.error-box p {
+  font-size: 13px;
+  font-weight: 600;
+  color: #842029;
+  margin-bottom: 6px;
 }
 
-.error-box ul{
-padding-left:18px;
+.error-box ul {
+  padding-left: 18px;
 }
 
-.error-box ul li{
-font-size:12px;
-color:#842029;
-margin-bottom:3px;
+.error-box ul li {
+  font-size: 12px;
+  color: #842029;
+  margin-bottom: 3px;
 }
 
-.card{
-background:white;
-padding:22px;
-border-radius:22px;
-box-shadow:0 15px 30px rgba(0,0,0,0.08);
-margin-bottom:22px;
+.card {
+  background: white;
+  padding: 22px;
+  border-radius: 22px;
+  box-shadow: 0 15px 30px rgba(0,0,0,0.08);
+  margin-bottom: 22px;
 }
 
-.card h3{
-font-size:16px;
-margin-bottom:15px;
+.card h3 {
+  font-size: 16px;
+  margin-bottom: 15px;
 }
 
-.form-group{
-margin-bottom:14px;
+.form-group {
+  margin-bottom: 14px;
 }
 
-.form-group label{
-font-size:13px;
-font-weight:600;
+.form-group label {
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.form-group input{
-width:100%;
-height:40px;
-border:none;
-border-radius:12px;
-background:#e9edf2;
-padding:0 12px;
-margin-top:5px;
+.form-group input {
+  width: 100%;
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: #e9edf2;
+  padding: 0 12px;
+  margin-top: 5px;
+  font-family: "Poppins", sans-serif;
+  font-size: 13px;
 }
 
-.jenis-list{
-display:flex;
-flex-wrap:wrap;
-gap:8px;
-margin-top:10px;
+.jenis-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
-.jenis-item{
-padding:6px 12px;
-border-radius:12px;
-border:1px solid #cfd4da;
-font-size:12px;
-background:#f5f6f8;
-cursor:default;
-transition:0.2s;
+.jenis-item {
+  padding: 6px 12px;
+  border-radius: 12px;
+  border: 1px solid #cfd4da;
+  font-size: 12px;
+  background: #f5f6f8;
+  cursor: default;
+  transition: 0.2s;
 }
 
-.jenis-item.active{
-background:#7ea2b9;
-color:white;
-border:none;
+.jenis-item.active {
+  background: #7ea2b9;
+  color: white;
+  border: none;
 }
 
-.add-btn{
-width:30px;
-height:30px;
-background:#5e91b2;
-color:white;
-border:none;
-border-radius:8px;
-font-size:18px;
-cursor:pointer;
-margin-top:10px;
-transition:background 0.2s;
+/* ── Tombol + dan − bersebelahan ── */
+.action-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: center;
 }
 
-.add-btn:hover{
-background:#4a7a99;
+.action-btns .action-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 9px;
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: background 0.2s, opacity 0.2s, transform 0.1s;
+  flex-shrink: 0;
 }
 
-.barang-wrapper{
-background:#7ea2b9;
-padding:15px;
-border-radius:16px;
-margin-top:12px;
+.action-btns .action-btn:active {
+  transform: scale(0.92);
 }
 
-.barang-box{
-margin-bottom:15px;
-position:relative;
+.btn-add {
+  background: #5e91b2;
+  color: white;
 }
 
-.barang-title{
-color:white;
-font-size:13px;
-margin-bottom:5px;
+.btn-add:hover {
+  background: #4a7a99;
 }
 
-.barang-input{
-width:100%;
-height:36px;
-border-radius:10px;
-border:none;
-background:#d7dbe1;
-padding:8px;
-margin-bottom:6px;
+.btn-remove {
+  background: #5e91b2;
+  color: white;
+  border: none !important;
 }
 
-.upload-box{
-background:#e5e5e5;
-min-height:120px;
-border-radius:18px;
-display:flex;
-flex-direction:column;
-align-items:center;
-justify-content:center;
-color:#9aa1a7;
-font-size:12px;
-text-align:center;
-cursor:pointer;
-transition:background 0.2s;
-overflow:hidden;
-padding:12px;
+.btn-remove:hover {
+  background: #4a7a99;
 }
 
-.upload-box:hover{
-background:#d8d8d8;
+.btn-remove:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
-.upload-box img#preview-foto{
-max-width:100%;
-max-height:200px;
-border-radius:12px;
-display:none;
-margin-bottom:8px;
+.barang-count-label {
+  font-size: 12px;
+  color: #7d8590;
+  font-weight: 500;
 }
 
-.submit-btn{
-width:100%;
-height:45px;
-border:none;
-border-radius:14px;
-background:#5e91b2;
-color:white;
-font-weight:600;
-font-size:14px;
-cursor:pointer;
-transition:background 0.2s;
+.barang-wrapper {
+  background: #7ea2b9;
+  padding: 15px;
+  border-radius: 16px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.submit-btn:hover{
-background:#4a7a99;
+/* ── Setiap barang-box dengan animasi masuk/keluar ── */
+.barang-box {
+  position: relative;
+  animation: slideIn 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.jenis-aktif-info{
-margin-top:12px;
-font-size:13px;
-color:#555;
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.barang-box.removing {
+  animation: slideOut 0.22s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes slideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 300px;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+    max-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+}
+
+/* Divider antar barang */
+.barang-box + .barang-box {
+  border-top: 1px solid rgba(255,255,255,0.2);
+  padding-top: 14px;
+}
+
+.barang-title {
+  color: white;
+  font-size: 13px;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.barang-input {
+  width: 100%;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: #d7dbe1;
+  padding: 0 10px;
+  margin-bottom: 6px;
+  font-family: "Poppins", sans-serif;
+  font-size: 13px;
+}
+
+.barang-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(94,145,178,0.4);
+}
+
+.label-white {
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.upload-box {
+  background: #e5e5e5;
+  min-height: 120px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #9aa1a7;
+  font-size: 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  overflow: hidden;
+  padding: 12px;
+}
+
+.upload-box:hover {
+  background: #d8d8d8;
+}
+
+.upload-box img#preview-foto {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 12px;
+  display: none;
+  margin-bottom: 8px;
+}
+
+.submit-btn {
+  width: 100%;
+  height: 45px;
+  border: none;
+  border-radius: 14px;
+  background: #5e91b2;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: "Poppins", sans-serif;
+}
+
+.submit-btn:hover {
+  background: #4a7a99;
+}
+
+.jenis-aktif-info {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #555;
 }
 
 </style>
@@ -424,23 +522,18 @@ color:#555;
 <body>
 
 <div class="header">
-
   <button class="back-btn" type="button" onclick="history.back()" title="Kembali">
     <img src="logo_back.png" alt="Kembali">
   </button>
-
   <h2>Input Nota Barang Masuk</h2>
-
   <div class="header-circle-big"></div>
   <div class="header-circle-small"></div>
   <div class="header-circle-small_2"></div>
-
 </div>
 
-<!-- FORM -->
 <form method="POST" enctype="multipart/form-data">
-
 <div class="container">
+
   <?php if (!empty($errors)): ?>
   <div class="error-box">
     <p>Terdapat kesalahan, mohon perbaiki:</p>
@@ -477,7 +570,7 @@ color:#555;
              placeholder="Nama perusahaan/toko supplier" maxlength="100" required>
     </div>
 
-    <label style="font-size:13px;font-weight:600;">Jenis Barang (Indikator)</label>
+    <label style="font-size:13px;font-weight:600;">Jenis Barang </label>
     <div class="jenis-list" id="jenis-indikator">
       <?php foreach ($semua_jenis as $j): ?>
         <div class="jenis-item" data-jenis="<?php echo htmlspecialchars($j, ENT_QUOTES, 'UTF-8'); ?>">
@@ -490,17 +583,22 @@ color:#555;
       Jenis Aktif: <b id="jenisAktifLabel">-</b>
     </div>
 
-    <button type="button" class="add-btn" onclick="tambahBarang()">+</button>
+    <!-- Tombol + dan − bersebelahan -->
+    <div class="action-btns">
+      <button type="button" class="action-btn btn-add" onclick="tambahBarang()" title="Tambah barang">+</button>
+      <button type="button" class="action-btn btn-remove" id="btnHapus" onclick="hapusBarangTerakhir()" title="Hapus barang terakhir" disabled>−</button>
+      <span class="barang-count-label" id="barangCountLabel">1 barang</span>
+    </div>
 
     <div class="barang-wrapper" id="barangWrapper">
 
-      <!-- BARANG 1 -->
-      <div class="barang-box">
+      <!-- BARANG 1 (tidak bisa dihapus) -->
+      <div class="barang-box" data-index="1">
         <div class="barang-title">Barang ke-1</div>
         <input class="barang-input" name="nama_barang[]" placeholder="Nama Barang" required>
-        <label style="color:white;font-size:12px;">Jumlah</label>
-        <input class="barang-input" type="number" name="jumlah_barang[]" min="1" required>
-        <label style="color:white;font-size:12px;">Jenis Barang</label>
+        <label class="label-white">Jumlah</label>
+        <input class="barang-input" type="number" name="jumlah_barang[]" min="1" placeholder="0" required>
+        <label class="label-white">Jenis Barang</label>
         <select name="jenis_barang[]" class="barang-input" required onchange="updateJenis()">
           <option value="">-- Pilih Jenis Barang --</option>
           <?php foreach ($semua_jenis as $j): ?>
@@ -516,7 +614,6 @@ color:#555;
   </div>
 
   <div class="card">
-
     <h3>Lampiran Foto Nota</h3>
 
     <label class="upload-box" for="foto_nota_input">
@@ -531,7 +628,6 @@ color:#555;
     <input type="file" id="foto_nota_input" name="foto_nota"
            accept="image/jpeg,image/png" hidden required
            onchange="previewFoto(this)">
-
   </div>
 
   <button class="submit-btn" type="submit" name="submit">
@@ -539,37 +635,82 @@ color:#555;
   </button>
 
 </div>
-
 </form>
 
 <script>
 
 const SEMUA_JENIS = <?php echo json_encode($semua_jenis, JSON_UNESCAPED_UNICODE); ?>;
 
-let nomorBarang = 2;
+let nomorBarang = 2; /* hanya dipakai sebagai key unik, bukan label tampilan */
 
+/* ── Tambah barang baru ── */
 function tambahBarang() {
   const wrapper = document.getElementById("barangWrapper");
+  const newIndex = wrapper.querySelectorAll('.barang-box').length + 1;
 
   const opsiJenis = SEMUA_JENIS.map(j =>
     `<option value="${escHtml(j)}">${escHtml(j)}</option>`
   ).join('');
 
-  const html = `
-    <div class="barang-box">
-      <div class="barang-title">Barang ke-${nomorBarang}</div>
-      <input class="barang-input" name="nama_barang[]" placeholder="Nama Barang" required>
-      <label style="color:white;font-size:12px;">Jumlah</label>
-      <input class="barang-input" type="number" name="jumlah_barang[]" min="1" required>
-      <label style="color:white;font-size:12px;">Jenis Barang</label>
-      <select name="jenis_barang[]" class="barang-input" required onchange="updateJenis()">
-        <option value="">-- Pilih Jenis Barang --</option>
-        ${opsiJenis}
-      </select>
-    </div>`;
+  const div = document.createElement('div');
+  div.className = 'barang-box';
+  div.dataset.index = newIndex;
+  div.innerHTML = `
+    <div class="barang-title">Barang ke-${newIndex}</div>
+    <input class="barang-input" name="nama_barang[]" placeholder="Nama Barang" required>
+    <label class="label-white">Jumlah</label>
+    <input class="barang-input" type="number" name="jumlah_barang[]" min="1" placeholder="0" required>
+    <label class="label-white">Jenis Barang</label>
+    <select name="jenis_barang[]" class="barang-input" required onchange="updateJenis()">
+      <option value="">-- Pilih Jenis Barang --</option>
+      ${opsiJenis}
+    </select>
+  `;
 
-  wrapper.insertAdjacentHTML("beforeend", html);
+  wrapper.appendChild(div);
   nomorBarang++;
+
+  updateUI();
+
+  /* Fokus ke input nama barang yang baru */
+  div.querySelector('input[name="nama_barang[]"]').focus();
+}
+
+/* ── Hapus barang terakhir (dengan animasi) ── */
+function hapusBarangTerakhir() {
+  const wrapper = document.getElementById("barangWrapper");
+  const boxes   = wrapper.querySelectorAll('.barang-box');
+
+  if (boxes.length <= 1) return; /* minimal 1 barang */
+
+  const last = boxes[boxes.length - 1];
+
+  /* Jalankan animasi keluar, lalu hapus dari DOM */
+  last.classList.add('removing');
+  last.addEventListener('animationend', () => {
+    last.remove();
+    updateUI();
+    updateJenis();
+  }, { once: true });
+}
+
+/* ── Update state tombol − , label jumlah, dan renomor semua barang ── */
+function updateUI() {
+  const wrapper  = document.getElementById("barangWrapper");
+  const boxes    = wrapper.querySelectorAll('.barang-box');
+  const count    = boxes.length;
+  const btnHapus = document.getElementById("btnHapus");
+  const label    = document.getElementById("barangCountLabel");
+
+  /* Renomor ulang semua judul barang agar selalu 1,2,3,... */
+  boxes.forEach((box, i) => {
+    const title = box.querySelector('.barang-title');
+    if (title) title.textContent = 'Barang ke-' + (i + 1);
+    box.dataset.index = i + 1;
+  });
+
+  btnHapus.disabled = count <= 1;
+  label.textContent = count + ' barang';
 }
 
 /* ── Update indikator jenis aktif ── */
@@ -609,7 +750,7 @@ function previewFoto(input) {
 
     const reader = new FileReader();
     reader.onload = e => {
-      preview.src = e.target.result;
+      preview.src           = e.target.result;
       preview.style.display = 'block';
       placeholder.style.display = 'none';
     };
