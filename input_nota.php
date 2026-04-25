@@ -522,9 +522,9 @@ body {
 <body>
 
 <div class="header">
-  <button class="back-btn" type="button" onclick="history.back()" title="Kembali">
+  <a  href="User_Admin.php" class="back-btn" title="Kembali">
     <img src="logo_back.png" alt="Kembali">
-  </button>
+</a>
   <h2>Input Nota Barang Masuk</h2>
   <div class="header-circle-big"></div>
   <div class="header-circle-small"></div>

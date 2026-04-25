@@ -170,7 +170,9 @@
     <div class="header">
       <div class="header-left">
         <div class="back-btn">
+          <a href="User_admin.php" title="kembali">
           <img src="logo_back.png" alt="" />
+          </a>
         </div>
         <h2>Input Nota Barang Masuk</h2>
       </div>

@@ -61,11 +61,15 @@ if (isset($_POST['simpan'])) {
     $allowed_mime = ['image/jpeg', 'image/png'];
     $max_size     = 5 * 1024 * 1024; // 5 MB
 
-    /* Prepared statement untuk UPDATE barang */
+    /*
+     * status_retur logic:
+     *   Sesuai → 'Sudah'   (tidak perlu retur, dianggap selesai)
+     *   Cacat  → 'Belum'   (perlu proses retur)
+     */
     $stmt_barang = mysqli_prepare(
       $koneksi,
       "UPDATE barang
-       SET status_barang = ?, foto_bukti = ?, keterangan = ?
+       SET status_barang = ?, foto_bukti = ?, keterangan = ?, status_retur = ?
        WHERE id_barang = ?"
     );
 
@@ -74,13 +78,16 @@ if (isset($_POST['simpan'])) {
       if (!ctype_digit((string)$id_barang_raw)) continue;
       $id_barang = (int)$id_barang_raw;
 
-      $keterangan = trim($_POST['keterangan'][$id_barang_raw] ?? '');
-
+      $keterangan  = trim($_POST['keterangan'][$id_barang_raw] ?? '');
       $foto_simpan = '';
-      $file_error  = $_FILES['foto_bukti']['error'][$id_barang_raw] ?? UPLOAD_ERR_NO_FILE;
-      $tmp_file    = $_FILES['foto_bukti']['tmp_name'][$id_barang_raw] ?? '';
-      $ori_name    = $_FILES['foto_bukti']['name'][$id_barang_raw] ?? '';
-      $file_size   = $_FILES['foto_bukti']['size'][$id_barang_raw] ?? 0;
+
+      /* status_retur otomatis berdasarkan hasil pemeriksaan */
+      $status_retur = ($hasil === 'Sesuai') ? 'Sudah' : 'Belum';
+
+      $file_error = $_FILES['foto_bukti']['error'][$id_barang_raw]    ?? UPLOAD_ERR_NO_FILE;
+      $tmp_file   = $_FILES['foto_bukti']['tmp_name'][$id_barang_raw] ?? '';
+      $ori_name   = $_FILES['foto_bukti']['name'][$id_barang_raw]     ?? '';
+      $file_size  = $_FILES['foto_bukti']['size'][$id_barang_raw]     ?? 0;
 
       if ($file_error === UPLOAD_ERR_OK && $tmp_file !== '') {
 
@@ -97,7 +104,6 @@ if (isset($_POST['simpan'])) {
           continue;
         }
 
-        /* Rename dengan uniqid agar tidak bisa ditebak / ditimpa */
         $foto_simpan = uniqid('bukti_', true) . '.' . $ext;
         if (!move_uploaded_file($tmp_file, "uploads/" . $foto_simpan)) {
           $errors[] = "Gagal mengunggah foto bukti barang #$id_barang.";
@@ -105,7 +111,10 @@ if (isset($_POST['simpan'])) {
         }
       }
 
-      mysqli_stmt_bind_param($stmt_barang, 'sssi', $hasil, $foto_simpan, $keterangan, $id_barang);
+      /* 'ssss' + 'i' → status_barang, foto_bukti, keterangan, status_retur, id_barang */
+      mysqli_stmt_bind_param($stmt_barang, 'ssssi',
+        $hasil, $foto_simpan, $keterangan, $status_retur, $id_barang
+      );
       mysqli_stmt_execute($stmt_barang);
     }
 
@@ -200,7 +209,6 @@ if (isset($_POST['simpan'])) {
         width: 20px;
       }
 
-      /* Decorative circles */
       .header-circle-big {
         position: absolute;
         width: 90px;
@@ -604,7 +612,6 @@ if (isset($_POST['simpan'])) {
     <!-- HEADER -->
     <div class="header">
       <div class="header-left">
-        <!-- Back button: kembali ke halaman kasir -->
         <a href="User_Kasir.php" class="back-btn" title="Kembali">
           <img src="logo_back.png" alt="Kembali" />
         </a>
@@ -621,7 +628,6 @@ if (isset($_POST['simpan'])) {
     <div class="container">
       <h3 class="page-title">Input Hasil Pengecekkan Fisik Barang</h3>
 
-      <!-- ERROR BOX (dari submit) -->
       <?php if (!empty($errors)): ?>
       <div class="error-box">
         <p>⚠️ Terdapat kesalahan:</p>
@@ -677,7 +683,7 @@ if (isset($_POST['simpan'])) {
           </span>
         </div>
 
-        <!-- ===== DETAIL (disembunyikan) ===== -->
+        <!-- DETAIL -->
         <div class="detail-wrapper" id="detail-<?php echo $id_nota; ?>">
 
           <div class="jenis-wrapper">
@@ -686,14 +692,10 @@ if (isset($_POST['simpan'])) {
               <?php foreach ($semua_jenis as $jenis):
                 $aktif = false;
                 foreach ($jenis_aktif as $ja) {
-                  if (trim($ja) === trim($jenis)) {
-                    $aktif = true;
-                    break;
-                  }
+                  if (trim($ja) === trim($jenis)) { $aktif = true; break; }
                 }
-                $cls = $aktif ? 'jenis-item jenis-active' : 'jenis-item';
               ?>
-                <span class="<?php echo $cls; ?>"
+                <span class="jenis-item <?php echo $aktif ? 'jenis-active' : ''; ?>"
                       data-jenis="<?php echo htmlspecialchars($jenis, ENT_QUOTES, 'UTF-8'); ?>">
                   <?php echo htmlspecialchars($jenis, ENT_QUOTES, 'UTF-8'); ?>
                 </span>
@@ -701,7 +703,6 @@ if (isset($_POST['simpan'])) {
             </div>
           </div>
 
-          <!-- FORM PEMERIKSAAN -->
           <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="id_nota" value="<?php echo $id_nota; ?>">
 
@@ -740,7 +741,7 @@ if (isset($_POST['simpan'])) {
                 </button>
               </div>
 
-              <!-- CACAT SECTION -->
+              <!-- CACAT SECTION — hanya muncul jika status Cacat -->
               <div class="cacat-section" id="cacat-<?php echo $id_barang; ?>">
 
                 <label style="color:white;font-size:13px;display:block;margin-top:10px;margin-bottom:6px;">
@@ -781,7 +782,6 @@ if (isset($_POST['simpan'])) {
 
           </form>
 
-          <!-- Status bawah (tampil saat expand) -->
           <div class="status-bottom">
             <span class="status-badge <?php echo $status_sudah ? 'sudah' : ''; ?>">
               <?php echo htmlspecialchars($nota['status'] ?? 'Belum Dicek', ENT_QUOTES, 'UTF-8'); ?>
@@ -808,7 +808,6 @@ if (isset($_POST['simpan'])) {
     function toggleBarang(id, btn) {
       var detail = document.getElementById("detail-" + id);
       var card   = document.getElementById("card-"   + id);
-
       if (detail) {
         detail.classList.toggle("show");
         btn.classList.toggle("active");
@@ -857,7 +856,7 @@ if (isset($_POST['simpan'])) {
 
       var reader = new FileReader();
       reader.onload = function(e) {
-        preview.src = e.target.result;
+        preview.src           = e.target.result;
         preview.style.display = 'block';
         label.style.display   = 'none';
       };
