@@ -416,12 +416,10 @@ if (mysqli_num_rows($data_laporan) == 0): ?>
 <?php else:
     while ($lap = mysqli_fetch_assoc($data_laporan)):
 
-        /* Ambil semua barang dari nota ini */
         $data_barang = mysqli_query($koneksi, "
             SELECT * FROM barang WHERE id_nota='" . $lap['id_nota'] . "'
         ");
 
-        /* Ambil semua jenis barang unik untuk indikator pills */
         $jenis_aktif = [];
         $tmp_barang = mysqli_query($koneksi, "
             SELECT DISTINCT jenis_barang FROM barang WHERE id_nota='" . $lap['id_nota'] . "'

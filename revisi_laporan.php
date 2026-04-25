@@ -8,7 +8,7 @@ if (!isset($_SESSION['login'])) {
     exit;
 }
 
-if ($_SESSION['role'] != 'manager') {
+if ($_SESSION['role'] != 'kasir') {
   header("Location: index.php");
   exit;
 }
@@ -729,7 +729,7 @@ body {
 <body>
 
 <div class="header">
-    <a href="javascript:history.back()" class="back-btn" title="Kembali">
+    <a href="User_Kasir.php" class="back-btn" title="Kembali">
         <img src="logo_back.png" alt="Kembali">
     </a>
     <h2>Revisi Laporan</h2>

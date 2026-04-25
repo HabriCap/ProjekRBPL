@@ -704,7 +704,7 @@ body {
 
 <!-- HEADER -->
 <div class="header">
-  <a href="User_Admin.php" class="back-btn" title="Kembali">
+  <a href="User_Manajer.php" class="back-btn" title="Kembali">
     <img src="logo_back.png" alt="Kembali">
   </a>
   <h2>Review Laporan Barang Masuk</h2>
@@ -713,14 +713,12 @@ body {
   <div class="header-circle-small_2"></div>
 </div>
 
-<!-- TABS FILTER -->
 <div class="tabs">
   <a href="?filter=disetujui" class="tab <?php echo $filter === 'disetujui' ? 'active-tab' : ''; ?>">Sudah Disetujui</a>
   <a href="?filter=ditolak"   class="tab <?php echo $filter === 'ditolak'   ? 'active-tab' : ''; ?>">Ditolak</a>
   <a href="?filter=menunggu"  class="tab <?php echo $filter === 'menunggu'  ? 'active-tab' : ''; ?>">Menunggu Persetujuan</a>
 </div>
 
-<!-- LIGHTBOX -->
 <div class="lightbox-overlay" id="lightboxOverlay" onclick="tutupLightbox(event)">
   <div class="lightbox-inner">
     <button class="lightbox-close" onclick="tutupLightboxBtn()" title="Tutup">✕</button>
@@ -731,7 +729,6 @@ body {
 
 <div class="container">
 
-  <!-- ERROR BOX -->
   <?php if (!empty($errors)): ?>
   <div class="error-box">
     <p>⚠️ Terdapat kesalahan:</p>
