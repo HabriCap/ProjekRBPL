@@ -26,10 +26,6 @@ if ($_SESSION['role'] != 'kasir') {
     />
 
     <style>
-      /* ===================================================== */
-      /* ===================== RESET ========================= */
-      /* ===================================================== */
-
       * {
         margin: 0;
         padding: 0;
@@ -41,10 +37,6 @@ if ($_SESSION['role'] != 'kasir') {
         background: #efefef;
         min-height: 100vh;
       }
-
-      /* ===================================================== */
-      /* ===================== HEADER ======================== */
-      /* ===================================================== */
 
       .header {
         background: #3f7aa3;
@@ -71,9 +63,11 @@ if ($_SESSION['role'] != 'kasir') {
         justify-content: center;
         align-items: center;
         cursor: pointer;
+        z-index: 10;
+        text-decoration: none;
+        color: white;
       }
 
-      /* Decorative circles header */
       .header-circle-big {
         position: absolute;
         width: 120px;
@@ -94,6 +88,8 @@ if ($_SESSION['role'] != 'kasir') {
         display: flex;
         justify-content: center;
         align-items: center;
+        text-decoration: none;
+        z-index: 10;
       }
       .header-circle-big_2 img {
         width: 22px;
@@ -127,15 +123,31 @@ if ($_SESSION['role'] != 'kasir') {
         top: 53px;
       }
 
-      /* ===================================================== */
-      /* ===================== CONTENT ======================= */
-      /* ===================================================== */
-
       .container {
         padding: 25px 20px;
       }
 
-      /* Welcome Card */
+      /* Dev mode badge */
+      .dev-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #1a1a2e;
+        color: #3fb950;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid #3fb95055;
+        margin-bottom: 16px;
+        text-decoration: none;
+        letter-spacing: 0.03em;
+      }
+
+      .dev-badge:hover {
+        background: #2a2a3e;
+      }
+
       .welcome-card {
         background: #3a6984;
         color: white;
@@ -162,7 +174,6 @@ if ($_SESSION['role'] != 'kasir') {
         height: 62px;
         background: #48b5c1;
         border-radius: 50%;
-
         top: -40px;
         left: -10px;
       }
@@ -172,7 +183,6 @@ if ($_SESSION['role'] != 'kasir') {
         height: 26px;
         background: #3c96a0;
         border-radius: 50%;
-
         top: -48px;
         left: 55px;
       }
@@ -182,11 +192,9 @@ if ($_SESSION['role'] != 'kasir') {
         height: 17px;
         background: #66d2de;
         border-radius: 50%;
-
         top: -21px;
         left: 77px;
       }
-      /* Decorative dots under card */
       .card-dots {
         position: absolute;
         bottom: -12px;
@@ -201,10 +209,6 @@ if ($_SESSION['role'] != 'kasir') {
         background: #68d4e0;
         border-radius: 50%;
       }
-
-      /* ===================================================== */
-      /* ===================== MENU CARDS ==================== */
-      /* ===================================================== */
 
       .menu-card {
         background: white;
@@ -262,18 +266,12 @@ if ($_SESSION['role'] != 'kasir') {
       .menu-arrow img {
         width: 23px;
       }
-      /* ===================================================== */
-      /* ===================== RESPONSIVE ==================== */
-      /* ===================================================== */
 
       @media (max-width: 480px) {
         .container {
           padding: 20px 15px;
         }
       }
-      /* ===================================================== */
-      /* ========== DECORATIVE CIRCLE WELCOME CARD ========== */
-      /* ===================================================== */
     </style>
   </head>
 
@@ -281,10 +279,10 @@ if ($_SESSION['role'] != 'kasir') {
     <!-- HEADER -->
     <div class="header">
       <h2>Beranda</h2>
-      <div class="logout-btn">⮕</div>
+      <a href="logout.php" class="logout-btn" title="Logout">⮕</a>
       <div class="header-circle-big"></div>
-      <a href="logout.php" class="header-circle-big_2">
-        <img src="UI_GENERAL/logo_out_acc.png" alt="" />
+      <a href="logout.php" class="header-circle-big_2" title="Logout">
+        <img src="UI_GENERAL/logo_out_acc.png" alt="Logout" />
       </a>
       <div class="header-circle-small"></div>
       <div class="header-circle-small_2"></div>
@@ -293,6 +291,11 @@ if ($_SESSION['role'] != 'kasir') {
 
     <!-- CONTENT -->
     <div class="container">
+
+      <?php if (isset($_SERVER['REMOTE_ADDR']) && $_SERVER['REMOTE_ADDR'] === '127.0.0.1'): ?>
+      <a href="dev_switch.php" class="dev-badge">🛠 Dev Mode · Ganti Role</a>
+      <?php endif; ?>
+
       <!-- Welcome -->
       <div class="welcome-card">
         <div class="welcome-circle"></div>
@@ -314,7 +317,7 @@ if ($_SESSION['role'] != 'kasir') {
       </div>
 
       <!-- Menu 1 -->
-       <a href="Cek_barang.php" style="text-decoration:none; color:inherit;">
+      <a href="Cek_barang.php" style="text-decoration:none; color:inherit;">
       <div class="menu-card">
         <div class="menu-left">
           <div class="menu-icon">
@@ -326,10 +329,10 @@ if ($_SESSION['role'] != 'kasir') {
           <img src="UI_GENERAL/logo_foward.png" alt="" />
         </div>
       </div>
-        </a>
+      </a>
 
       <!-- Menu 2 -->
-       <a href="input_laporan.php" style="text-decoration:none; color:inherit;">
+      <a href="input_laporan.php" style="text-decoration:none; color:inherit;">
       <div class="menu-card">
         <div class="menu-left">
           <div class="menu-icon">
@@ -342,8 +345,9 @@ if ($_SESSION['role'] != 'kasir') {
         </div>
       </div>
       </a>
+
       <!-- Menu 3 -->
-       <a href="revisi_laporan.php" style="text-decoration:none; color:inherit;">
+      <a href="revisi_laporan.php" style="text-decoration:none; color:inherit;">
       <div class="menu-card">
         <div class="menu-left">
           <div class="menu-icon">
@@ -358,7 +362,7 @@ if ($_SESSION['role'] != 'kasir') {
       </a>
 
       <!-- Menu 4 -->
-       <a href="arsip_laporan.php" style="text-decoration:none; color:inherit;">
+      <a href="arsip_laporan.php" style="text-decoration:none; color:inherit;">
       <div class="menu-card">
         <div class="menu-left">
           <div class="menu-icon">
@@ -371,6 +375,7 @@ if ($_SESSION['role'] != 'kasir') {
         </div>
       </div>
       </a>
+
     </div>
   </body>
 </html>
