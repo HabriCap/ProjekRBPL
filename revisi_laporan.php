@@ -1,18 +1,18 @@
 <?php
 include "koneksi.php";
 include "Check_Login.php";
-cekRole('kasir');
+// Sesuaikan role yang bisa akses halaman ini (misal: kasir atau gudang)
+// cekRole('kasir');
 
 if (!isset($_SESSION['login'])) {
     header("Location: index.php");
     exit;
 }
 
-if ($_SESSION['role'] != 'kasir') {
-  header("Location: index.php");
-  exit;
-}
-
+/* ─────────────────────────────────────────────
+   KONSTANTA JENIS BARANG (single source of truth,
+   urutan sama persis dengan file lain)
+───────────────────────────────────────────── */
 $semua_jenis = [
     "Material Bangunan",
     "Besi & Logam",
@@ -22,11 +22,18 @@ $semua_jenis = [
     "Kayu & Olahan"
 ];
 
+/* ─────────────────────────────────────────────
+   KONSTANTA VALIDASI FILE UPLOAD
+───────────────────────────────────────────── */
 define('UPLOAD_DIR',      'uploads/');
 define('MAX_FILE_SIZE',   5 * 1024 * 1024); // 5 MB
 define('ALLOWED_EXT',     ['jpg','jpeg','png','gif','webp','pdf']);
 define('ALLOWED_MIME',    ['image/jpeg','image/png','image/gif','image/webp','application/pdf']);
 
+/* ─────────────────────────────────────────────
+   HELPER: validasi & pindah file upload
+   Return: nama file baru (string) atau false jika gagal
+───────────────────────────────────────────── */
 function prosesUpload(array $fileArr, int $idx): string|false
 {
     $name = $fileArr['name'][$idx]    ?? '';
@@ -53,17 +60,21 @@ function prosesUpload(array $fileArr, int $idx): string|false
     return $newName;
 }
 
-
+/* ─────────────────────────────────────────────
+   HANDLE UPDATE (POST)
+───────────────────────────────────────────── */
 $errors = [];
 
 if (isset($_POST['simpan_revisi'])) {
 
+    /* --- Validasi id_nota --- */
     $id_nota_raw = $_POST['id_nota'] ?? '';
     if (!ctype_digit((string)$id_nota_raw) || (int)$id_nota_raw <= 0) {
         $errors[] = "ID nota tidak valid.";
     } else {
         $id_nota = (int)$id_nota_raw;
 
+        /* Verifikasi nota benar-benar ada & statusnya Ditolak */
         $stmt_cek = mysqli_prepare($koneksi,
             "SELECT n.id_nota FROM nota n
              JOIN laporan l ON l.id_nota = n.id_nota
@@ -112,6 +123,7 @@ if (isset($_POST['simpan_revisi'])) {
         }
     }
 
+    /* --- Proses jika tidak ada error --- */
     if (empty($errors)) {
         for ($i = 0; $i < $jumlah_barang; $i++) {
             $id_b      = (int)$id_barang_arr[$i];
@@ -121,6 +133,7 @@ if (isset($_POST['simpan_revisi'])) {
             $hapus      = isset($hapus_arr[$i]) ? (int)$hapus_arr[$i] : 0;
             $fileLama   = isset($file_lama_arr[$i]) ? basename($file_lama_arr[$i]) : '';
 
+            /* Barang Sesuai: hanya update jumlah */
             if ($status === 'Sesuai') {
                 $stmt_u = mysqli_prepare($koneksi,
                     "UPDATE barang SET jumlah_barang = ? WHERE id_barang = ?"
@@ -131,6 +144,7 @@ if (isset($_POST['simpan_revisi'])) {
                 continue;
             }
 
+            /* Hapus file lama */
             if ($hapus === 1) {
                 if ($fileLama !== '' && file_exists(UPLOAD_DIR . $fileLama)) {
                     unlink(UPLOAD_DIR . $fileLama);
@@ -138,6 +152,7 @@ if (isset($_POST['simpan_revisi'])) {
                 $fileLama = '';
             }
 
+            /* Upload file baru */
             $namaFileBaru = prosesUpload($_FILES['foto'] ?? [], $i);
             if ($namaFileBaru !== false) {
                 /* Hapus file lama jika ada dan ada file baru */
@@ -147,6 +162,7 @@ if (isset($_POST['simpan_revisi'])) {
                 $fileLama = $namaFileBaru;
             }
 
+            /* Update barang Cacat */
             $stmt_u = mysqli_prepare($koneksi,
                 "UPDATE barang
                  SET jumlah_barang = ?, keterangan = ?, foto_bukti = ?
@@ -157,6 +173,7 @@ if (isset($_POST['simpan_revisi'])) {
             mysqli_stmt_close($stmt_u);
         }
 
+        /* Reset status laporan → Menunggu Persetujuan */
         $stmt_lap = mysqli_prepare($koneksi,
             "UPDATE laporan
              SET status_laporan = 'Menunggu Persetujuan', catatanrevisi = NULL
@@ -166,8 +183,14 @@ if (isset($_POST['simpan_revisi'])) {
         mysqli_stmt_execute($stmt_lap);
         mysqli_stmt_close($stmt_lap);
 
+        /*
+         * Reset status_retur HANYA untuk barang Sesuai.
+         * Barang Cacat yang sudah status_retur = 'sudah' (dari input_retur.php)
+         * TIDAK boleh di-reset, agar tidak hilang saat laporan direvisi ulang.
+         */
         $stmt_ret = mysqli_prepare($koneksi,
-            "UPDATE barang SET status_retur = NULL WHERE id_nota = ?"
+            "UPDATE barang SET status_retur = NULL
+             WHERE id_nota = ? AND LOWER(status_barang) = 'sesuai'"
         );
         mysqli_stmt_bind_param($stmt_ret, 'i', $id_nota);
         mysqli_stmt_execute($stmt_ret);
@@ -178,6 +201,9 @@ if (isset($_POST['simpan_revisi'])) {
     }
 }
 
+/* ─────────────────────────────────────────────
+   AMBIL NOTA YANG BERSTATUS DITOLAK
+───────────────────────────────────────────── */
 $stmt_nota = mysqli_prepare($koneksi,
     "SELECT n.*, l.catatanrevisi
      FROM nota n
@@ -199,6 +225,7 @@ mysqli_stmt_close($stmt_nota);
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 
 <style>
+/* ===== RESET ===== */
 * {
     margin: 0;
     padding: 0;
@@ -210,6 +237,7 @@ body {
     background: #efefef;
 }
 
+/* ===== HEADER ===== */
 .header {
     background: #3f7aa3;
     color: white;
@@ -283,10 +311,12 @@ body {
     pointer-events: none;
 }
 
+/* ===== CONTAINER ===== */
 .container {
     padding: 25px 20px 80px;
 }
 
+/* ===== ERROR BOX ===== */
 .error-box {
     background: #fff0f0;
     border: 1px solid #f5c2c7;
@@ -312,6 +342,7 @@ body {
     margin-bottom: 3px;
 }
 
+/* ===== EMPTY STATE ===== */
 .empty-state {
     text-align: center;
     padding: 60px 20px;
@@ -327,6 +358,7 @@ body {
     font-size: 14px;
 }
 
+/* ===== CARD ===== */
 .card {
     background: white;
     padding: 22px;
@@ -342,6 +374,7 @@ body {
     box-shadow: 0 20px 40px rgba(0,0,0,0.13);
 }
 
+/* ===== STATUS BADGE — pojok kanan atas (seperti review_laporan) ===== */
 .status-badge-corner {
     position: absolute;
     right: 20px;
@@ -351,6 +384,7 @@ body {
     font-weight: 500;
 }
 
+/* ===== FORM GROUP ===== */
 .form-group {
     margin-bottom: 14px;
 }
@@ -373,6 +407,7 @@ body {
     font-size: 13px;
 }
 
+/* ===== DETAIL WRAPPER ===== */
 .detail-wrapper {
     display: grid;
     grid-template-rows: 0fr;
@@ -398,6 +433,7 @@ body {
     padding-top: 2px;
 }
 
+/* ===== CATATAN REVISI ===== */
 .catatan-revisi {
     background: #fff3cd;
     border: 1px solid #ffc107;
@@ -418,6 +454,7 @@ body {
     color: #7a5800;
 }
 
+/* ===== JENIS LIST (identik dengan lihat_hasil & buat_laporan) ===== */
 .jenis-list {
     display: flex;
     flex-wrap: wrap;
@@ -440,6 +477,7 @@ body {
     border: none;
 }
 
+/* ===== BARANG BOX ===== */
 .barang-box {
     background: #7ea2b9;
     padding: 15px;
@@ -494,6 +532,7 @@ body {
     margin-bottom: 4px;
 }
 
+/* ===== STATUS BUTTONS (identik buat_laporan & review_laporan) ===== */
 .status-display {
     display: flex;
     gap: 10px;
@@ -516,6 +555,7 @@ body {
 .btn-red   { background: #ff3b30; }
 .btn-dim   { opacity: 0.3; }
 
+/* ===== KETERANGAN TEXTAREA ===== */
 .keterangan-textarea {
     width: 100%;
     border: none;
@@ -530,6 +570,7 @@ body {
     margin-bottom: 6px;
 }
 
+/* ===== UPLOAD BOX (identik buat_laporan) ===== */
 .foto-bukti-wrapper {
     margin-top: 4px;
     margin-bottom: 6px;
@@ -564,6 +605,7 @@ body {
     cursor: default;
 }
 
+/* ===== FILE ACTION BUTTONS ===== */
 .file-btn {
     display: flex;
     gap: 8px;
@@ -624,6 +666,7 @@ body {
     background: #4a7a99;
 }
 
+/* ===== EXPAND BUTTON (identik buat_laporan) ===== */
 .expand-btn {
     width: 42px;
     height: 42px;
@@ -664,6 +707,7 @@ body {
     transform: rotate(180deg);
 }
 
+/* ===== LIGHTBOX (identik buat_laporan & review_laporan) ===== */
 .lightbox-overlay {
     display: none;
     position: fixed;
@@ -728,8 +772,9 @@ body {
 
 <body>
 
+<!-- HEADER -->
 <div class="header">
-    <a href="User_Kasir.php" class="back-btn" title="Kembali">
+    <a href="javascript:history.back()" class="back-btn" title="Kembali">
         <img src="logo_back.png" alt="Kembali">
     </a>
     <h2>Revisi Laporan</h2>
@@ -738,6 +783,7 @@ body {
     <div class="header-circle-small_2"></div>
 </div>
 
+<!-- LIGHTBOX -->
 <div class="lightbox-overlay" id="lightboxOverlay" onclick="tutupLightbox(event)">
     <div class="lightbox-inner">
         <button class="lightbox-close" onclick="tutupLightboxBtn()" title="Tutup">✕</button>
@@ -748,6 +794,7 @@ body {
 
 <div class="container">
 
+    <!-- ERROR BOX -->
     <?php if (!empty($errors)): ?>
     <div class="error-box">
         <p>⚠️ Terdapat kesalahan:</p>
@@ -759,6 +806,7 @@ body {
     </div>
     <?php endif; ?>
 
+    <!-- EMPTY STATE -->
     <?php if (mysqli_num_rows($result_nota) === 0): ?>
     <div class="empty-state">
         <div>📋</div>
@@ -768,12 +816,14 @@ body {
     <?php else: $no = 1; while ($n = mysqli_fetch_assoc($result_nota)):
         $id_nota = (int)$n['id_nota'];
 
+        /* Ambil barang dengan prepared statement */
         $stmt_b = mysqli_prepare($koneksi, "SELECT * FROM barang WHERE id_nota = ?");
         mysqli_stmt_bind_param($stmt_b, 'i', $id_nota);
         mysqli_stmt_execute($stmt_b);
         $data_barang = mysqli_stmt_get_result($stmt_b);
         mysqli_stmt_close($stmt_b);
 
+        /* Kumpulkan barang & jenis aktif */
         $list_barang = [];
         $jenis_aktif = [];
         while ($brow = mysqli_fetch_assoc($data_barang)) {
@@ -790,6 +840,7 @@ body {
 
     <div class="card" id="card-<?php echo $no; ?>">
 
+        <!-- Status badge -->
         <div class="status-badge-corner">Ditolak</div>
 
         <div class="form-group">
@@ -802,11 +853,13 @@ body {
             <input value="<?php echo htmlspecialchars($n['tanggal_nota'], ENT_QUOTES, 'UTF-8'); ?>" readonly>
         </div>
 
+        <!-- Expand button dalam card -->
         <div class="expand-btn inside" id="btn-inside-<?php echo $no; ?>"
              onclick="toggleDetail('<?php echo $no; ?>')">
             <img src="logo_down.png" alt="expand">
         </div>
 
+        <!-- DETAIL -->
         <div class="detail-wrapper" id="detail-<?php echo $no; ?>">
         <div class="detail-inner">
 
@@ -815,15 +868,16 @@ body {
                 <input value="<?php echo htmlspecialchars($n['supplier'], ENT_QUOTES, 'UTF-8'); ?>" readonly>
             </div>
 
+            <!-- CATATAN REVISI dari manager -->
             <?php $catatan = trim($n['catatanrevisi'] ?? ''); if ($catatan !== ''): ?>
             <label style="font-size:13px;font-weight:600;">Catatan Revisi</label>
             <div class="catatan-revisi">
-                <strong> Catatan dari Manager:</strong>
+                <strong>⚠️ Catatan dari Manager:</strong>
                 <?php echo nl2br(htmlspecialchars($catatan, ENT_QUOTES, 'UTF-8')); ?>
             </div>
             <?php endif; ?>
 
-           
+            <!-- JENIS BARANG INDIKATOR (identik lihat_hasil, buat_laporan, review_laporan) -->
             <label style="font-size:13px;font-weight:600;">Jenis Barang</label>
             <div class="jenis-list">
                 <?php foreach ($semua_jenis as $jenis):
@@ -868,6 +922,7 @@ body {
                        value="<?php echo (int)$b['jumlah_barang']; ?>"
                        required>
 
+                <!-- Status display (identik buat_laporan & review_laporan) -->
                 <div class="status-display">
                     <button type="button" class="btn-green <?php echo $is_cacat ? 'btn-dim' : ''; ?>">Sesuai</button>
                     <button type="button" class="btn-red <?php echo !$is_cacat ? 'btn-dim' : ''; ?>">Cacat</button>
@@ -875,7 +930,7 @@ body {
 
                 <?php if ($is_cacat): ?>
 
-                
+                    <!-- FOTO BUKTI: upload-box-view identik buat_laporan, klik lightbox jika ada file -->
                     <label class="label-white" style="margin-top:8px;">Lampiran Bukti</label>
                     <div class="foto-bukti-wrapper">
                         <?php if ($foto_ada): ?>
@@ -922,13 +977,17 @@ body {
                               placeholder="Tulis keterangan keluhan..."><?php echo htmlspecialchars($b['keterangan'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
 
                 <?php else: ?>
-                   
+                    <!--
+                        Dummy inputs untuk barang Sesuai agar index array tetap sinkron
+                        (foto, hapus_file, file_lama, keterangan tidak diproses di backend untuk Sesuai)
+                    -->
                     <input type="file"   name="foto[]"        id="file-input-<?php echo $idx; ?>" style="display:none;">
                     <input type="hidden" name="hapus_file[]"  value="0">
                     <input type="hidden" name="file_lama[]"   value="">
                     <input type="hidden" name="keterangan[]"  value="">
                 <?php endif; ?>
 
+                <!-- Hidden: status & id barang agar PHP tahu mana Sesuai/Cacat -->
                 <input type="hidden" name="status_barang[]" value="<?php echo htmlspecialchars($b['status_barang'], ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="id_barang[]"     value="<?php echo (int)$b['id_barang']; ?>">
 
@@ -957,6 +1016,7 @@ body {
 </div><!-- /container -->
 
 <script>
+/* ── Toggle expand / collapse (identik buat_laporan) ── */
 function toggleDetail(id) {
     var detail     = document.getElementById("detail-"      + id);
     var insideBtn  = document.getElementById("btn-inside-"  + id);
@@ -975,6 +1035,7 @@ function toggleDetail(id) {
     }
 }
 
+/* ── Klik foto box: jika ada file → lightbox, jika kosong → abaikan ── */
 function klikFotoBox(el) {
     var file = el.dataset.file;
     if (file && file !== '') {
@@ -982,7 +1043,7 @@ function klikFotoBox(el) {
     }
 }
 
-
+/* ── Hapus file ── */
 function hapusFile(btn, idx) {
     var box = document.getElementById("file-text-" + idx);
     box.innerText      = "Tidak ada file";
@@ -1007,13 +1068,14 @@ function tambahFile(btn, idx) {
         var file = this.files[0];
         if (!file) return;
 
+        /* Reset hapus flag */
         document.getElementById("hapus-" + idx).value = 0;
 
-
+        /* Preview nama file di box, tidak buka lightbox langsung */
         box.innerText    = "📎 " + file.name;
-        box.dataset.file = "";   
+        box.dataset.file = "";   /* file baru belum punya path server */
         box.className    = "upload-box-view";
-        box.onclick      = null; 
+        box.onclick      = null; /* tidak bisa dibuka di lightbox sebelum upload */
 
         btn.classList.add("active-tambah");
         btn.previousElementSibling.classList.remove("active-hapus");
