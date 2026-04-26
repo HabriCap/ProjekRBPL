@@ -15,14 +15,13 @@ if ($_SESSION['role'] != 'admin') {
 
 /* ─────────────────────────────────────────────
    AMBIL NOTA YANG PUNYA BARANG CACAT & BELUM DIRETUR
-   (prepared statement)
 ───────────────────────────────────────────── */
 $stmt_nota = mysqli_prepare($koneksi, "
   SELECT DISTINCT n.id_nota, n.nomor_nota, n.tanggal_nota, n.supplier
   FROM nota n
   JOIN barang b ON b.id_nota = n.id_nota
   WHERE LOWER(b.status_barang) = 'cacat'
-  AND (b.status_retur IS NULL OR b.status_retur != 'sudah')
+  AND (b.status_retur IS NULL OR LOWER(b.status_retur) != 'sudah')
   ORDER BY n.id_nota DESC
 ");
 mysqli_stmt_execute($stmt_nota);
@@ -37,10 +36,10 @@ $errors = [];
 if (isset($_POST['submit'])) {
 
   /* ── 1. Validasi field utama ── */
-  $nomor   = trim($_POST['nomor_retur']    ?? '');
-  $tanggal = trim($_POST['tanggal_retur']  ?? '');
-  $supplier = trim($_POST['retur_supplier'] ?? '');
-  $tanggapan = trim($_POST['tanggapan']    ?? '');
+  $nomor     = trim($_POST['nomor_retur']    ?? '');
+  $tanggal   = trim($_POST['tanggal_retur']  ?? '');
+  $supplier  = trim($_POST['retur_supplier'] ?? '');
+  $tanggapan = trim($_POST['tanggapan']      ?? '');  /* ← dari form card yang diklik */
 
   if ($nomor === '') {
     $errors[] = "Nomor retur tidak boleh kosong.";
@@ -55,9 +54,9 @@ if (isset($_POST['submit'])) {
     $errors[] = "Nama supplier tidak valid atau terlalu panjang.";
   }
 
-  $id_barang_list = $_POST['id_barang'] ?? [];
-  $alasan_list    = $_POST['alasan']    ?? [];
-  $jenis_list     = $_POST['jenis_retur'] ?? [];
+  $id_barang_list = $_POST['id_barang']    ?? [];
+  $alasan_list    = $_POST['alasan']       ?? [];
+  $jenis_list     = $_POST['jenis_retur']  ?? [];
 
   if (empty($id_barang_list)) {
     $errors[] = "Tidak ada barang yang dipilih untuk diretur.";
@@ -69,10 +68,10 @@ if (isset($_POST['submit'])) {
   $allowed_mime = ['image/jpeg', 'image/png', 'application/pdf'];
   $max_size     = 5 * 1024 * 1024; // 5 MB
 
-  $tl_error = $_FILES['tindaklanjut']['error'] ?? UPLOAD_ERR_NO_FILE;
+  $tl_error = $_FILES['tindaklanjut']['error']    ?? UPLOAD_ERR_NO_FILE;
   $tl_tmp   = $_FILES['tindaklanjut']['tmp_name'] ?? '';
-  $tl_name  = $_FILES['tindaklanjut']['name'] ?? '';
-  $tl_size  = $_FILES['tindaklanjut']['size'] ?? 0;
+  $tl_name  = $_FILES['tindaklanjut']['name']     ?? '';
+  $tl_size  = $_FILES['tindaklanjut']['size']     ?? 0;
 
   if ($tl_error === UPLOAD_ERR_OK && $tl_name !== '') {
     $ext  = strtolower(pathinfo($tl_name, PATHINFO_EXTENSION));
@@ -94,7 +93,6 @@ if (isset($_POST['submit'])) {
   /* ── 3. Simpan ke DB jika tidak ada error ── */
   if (empty($errors)) {
 
-    /* Prepared statement INSERT retur */
     $stmt_insert = mysqli_prepare($koneksi,
       "INSERT INTO retur
        (id_barang, nomor_retur, tanggal_retur, retur_supplier,
@@ -102,32 +100,29 @@ if (isset($_POST['submit'])) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
 
-    /* Prepared statement UPDATE status_retur barang */
     $stmt_update = mysqli_prepare($koneksi,
       "UPDATE barang SET status_retur = 'sudah' WHERE id_barang = ?"
     );
 
-    /* Prepared statement cek duplikat retur */
     $stmt_cek = mysqli_prepare($koneksi,
       "SELECT id_retur FROM retur WHERE id_barang = ?"
     );
 
     foreach ($id_barang_list as $i => $id_brg_raw) {
 
-      /* Validasi id_barang integer */
       if (!ctype_digit((string)$id_brg_raw)) continue;
       $id_brg = (int)$id_brg_raw;
 
-      /* Cek apakah barang sudah pernah diretur */
+      /* Cek duplikat */
       mysqli_stmt_bind_param($stmt_cek, 'i', $id_brg);
       mysqli_stmt_execute($stmt_cek);
       $res_cek = mysqli_stmt_get_result($stmt_cek);
       if (mysqli_num_rows($res_cek) > 0) continue;
 
       $ket = trim($alasan_list[$i] ?? '');
-      $jns = trim($jenis_list[$i] ?? '');
+      $jns = trim($jenis_list[$i]  ?? '');
 
-      /* Ambil data barang (jumlah & foto_bukti) dengan prepared statement */
+      /* Ambil jumlah & foto_bukti dari tabel barang */
       $stmt_brg = mysqli_prepare($koneksi,
         "SELECT jumlah_barang, foto_bukti FROM barang WHERE id_barang = ?"
       );
@@ -142,6 +137,10 @@ if (isset($_POST['submit'])) {
       $qty       = (int)$b['jumlah_barang'];
       $nama_foto = $b['foto_bukti'] ?? '';
 
+      /*
+       * Kolom tanggapan  → $tanggapan       (dari POST card yang disubmit)
+       * Kolom tindaklanjut → $nama_file_global (nama file upload)
+       */
       mysqli_stmt_bind_param(
         $stmt_insert, 'issssissss',
         $id_brg, $nomor, $tanggal, $supplier,
@@ -314,10 +313,12 @@ body {
   box-shadow: 0 15px 30px rgba(0,0,0,0.08);
   margin-bottom: 40px;
   position: relative;
+  transition: box-shadow 0.3s ease, margin-bottom 0.4s ease;
 }
 
 .card.expanded {
   margin-bottom: 0;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.12);
 }
 
 /* ===== CLOSE BTN ===== */
@@ -362,6 +363,32 @@ body {
   font-size: 13px;
 }
 
+/* ===== DETAIL WRAPPER ===== */
+.detail-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    grid-template-rows 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.35s ease;
+}
+
+.detail-wrapper > .detail-inner {
+  overflow: hidden;
+  padding-top: 0;
+  transition: padding-top 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.detail-wrapper.show {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.detail-wrapper.show > .detail-inner {
+  padding-top: 4px;
+}
+
 /* ===== BARANG BOX ===== */
 .barang-box {
   background: #7ea2b9;
@@ -401,10 +428,10 @@ textarea.barang-input:focus {
   box-shadow: 0 0 0 2px rgba(94, 145, 178, 0.3);
 }
 
-/* ===== FOTO BUKTI (tetap tampilan box asli, + lightbox) ===== */
+/* ===== FOTO BUKTI ===== */
 .upload-box {
   background: #d7dbe1;
-  height: 90px;
+  height: 70px;
   border-radius: 14px;
   display: flex;
   align-items: center;
@@ -440,6 +467,34 @@ textarea.barang-input:focus {
   margin-top: 20px;
 }
 
+.label-white {
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 5px;
+  margin-top: 10px;
+}
+
+/* ===== TANGGAPAN TEXTAREA ===== */
+.tanggapan-textarea {
+  width: 100%;
+  min-height: 80px;
+  border-radius: 12px;
+  border: none;
+  background: #d7dbe1;
+  padding: 10px 12px;
+  font-family: "Poppins", sans-serif;
+  font-size: 13px;
+  resize: none;
+  margin-bottom: 6px;
+}
+
+.tanggapan-textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(94, 145, 178, 0.3);
+}
+
 /* ===== UPLOAD TINDAK LANJUT ===== */
 .upload-tl {
   background: #d7dbe1;
@@ -449,26 +504,20 @@ textarea.barang-input:focus {
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  color: #6b7280;
+  color: #374151;
   cursor: pointer;
   text-align: center;
-  margin-bottom: 6px;
   transition: background 0.2s;
+  width: 100%;
+  font-family: "Poppins", sans-serif;
+  gap: 6px;
+  border: none;
+  padding: 10px;
+  word-break: break-all;
 }
 
 .upload-tl:hover {
   background: #c8cdd5;
-}
-
-/* ===== DETAIL WRAPPER ===== */
-.detail-wrapper {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.4s ease;
-}
-
-.detail-wrapper.show {
-  max-height: 3000px;
 }
 
 /* ===== EXPAND BUTTONS ===== */
@@ -483,9 +532,17 @@ textarea.barang-input:focus {
   cursor: pointer;
   border: none;
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  transition: background 0.2s;
-  font-size: 15px;
-  color: #374151;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.expand-btn:hover {
+  background: #d4d9de;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+
+.expand-btn img {
+  width: 18px;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .expand-btn.inside {
@@ -495,14 +552,13 @@ textarea.barang-input:focus {
   bottom: -20px;
 }
 
-.expand-btn img {
-  width: 18px;
-  transition: transform 0.3s;
-}
-
 .expand-btn.outside {
   margin: 8px auto 24px;
   display: none;
+}
+
+.expand-btn.outside img {
+  transform: rotate(180deg);
 }
 
 /* ===== SUBMIT BTN ===== */
@@ -516,7 +572,7 @@ textarea.barang-input:focus {
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
-  margin-top: 12px;
+  margin-top: 15px;
   font-family: "Poppins", sans-serif;
   transition: background 0.2s;
 }
@@ -592,7 +648,6 @@ textarea.barang-input:focus {
 
 <!-- HEADER -->
 <div class="header">
-  <!-- Back button berfungsi -->
   <a href="User_Admin.php" class="back-btn" title="Kembali">
     <img src="logo_back.png" alt="Kembali">
   </a>
@@ -632,19 +687,15 @@ textarea.barang-input:focus {
     <p>Tidak ada barang cacat yang perlu diretur saat ini.</p>
   </div>
 
-  <?php else: ?>
-
-  <form method="POST" enctype="multipart/form-data">
-
-  <?php $no = 1; while ($n = mysqli_fetch_assoc($data_nota)):
+  <?php else: $no = 1; while ($n = mysqli_fetch_assoc($data_nota)):
     $id_nota = (int)$n['id_nota'];
 
-    /* Ambil barang cacat belum diretur dengan prepared statement */
+    /* Ambil barang cacat belum diretur */
     $stmt_b = mysqli_prepare($koneksi,
       "SELECT * FROM barang
        WHERE id_nota = ?
        AND LOWER(status_barang) = 'cacat'
-       AND (status_retur IS NULL OR status_retur != 'sudah')"
+       AND (status_retur IS NULL OR LOWER(status_retur) != 'sudah')"
     );
     mysqli_stmt_bind_param($stmt_b, 'i', $id_nota);
     mysqli_stmt_execute($stmt_b);
@@ -652,138 +703,161 @@ textarea.barang-input:focus {
     mysqli_stmt_close($stmt_b);
   ?>
 
-  <div class="card" id="card-<?php echo $no; ?>">
+  <!--
+    ╔══════════════════════════════════════════════════════╗
+    ║  SETIAP NOTA PUNYA FORM SENDIRI                      ║
+    ║  Ini memastikan tanggapan & tindaklanjut yang        ║
+    ║  diisi pada card ini benar-benar terkirim ke PHP     ║
+    ║  saat tombol "Simpan" di card ini ditekan.           ║
+    ╚══════════════════════════════════════════════════════╝
+  -->
+  <form method="POST" enctype="multipart/form-data">
 
-    <div class="close-btn" onclick="tutupCard(<?php echo $no; ?>)">✖</div>
+    <!-- Field identitas nota (hidden untuk dikirim ke PHP) -->
+    <input type="hidden" name="nomor_retur"    value="<?php echo htmlspecialchars($n['nomor_nota'], ENT_QUOTES, 'UTF-8'); ?>">
+    <input type="hidden" name="tanggal_retur"  value="<?php echo htmlspecialchars($n['tanggal_nota'], ENT_QUOTES, 'UTF-8'); ?>">
+    <input type="hidden" name="retur_supplier" value="<?php echo htmlspecialchars($n['supplier'], ENT_QUOTES, 'UTF-8'); ?>">
+    <input type="hidden" name="id_nota"        value="<?php echo $id_nota; ?>">
 
-    <input type="hidden" name="id_nota" value="<?php echo $id_nota; ?>">
+    <div class="card" id="card-<?php echo $no; ?>">
 
-    <div class="form-group">
-      <label>Nomor Nota</label>
-      <input name="nomor_retur"
-             value="<?php echo htmlspecialchars($n['nomor_nota'], ENT_QUOTES, 'UTF-8'); ?>"
-             readonly>
-    </div>
+      <div class="close-btn" onclick="tutupCard(<?php echo $no; ?>)">✖</div>
 
-    <div class="form-group">
-      <label>Tanggal Nota</label>
-      <input type="date" name="tanggal_retur"
-             value="<?php echo htmlspecialchars($n['tanggal_nota'], ENT_QUOTES, 'UTF-8'); ?>"
-             readonly>
-    </div>
-
-    <div class="form-group" id="supplier-<?php echo $no; ?>" style="display:none;">
-      <label>Nama Supplier</label>
-      <input name="retur_supplier"
-             value="<?php echo htmlspecialchars($n['supplier'], ENT_QUOTES, 'UTF-8'); ?>"
-             readonly>
-    </div>
-
-    <!-- Expand button dalam card (sebelum detail terbuka) -->
-    <div class="expand-btn inside" id="btn-inside-<?php echo $no; ?>"
-         onclick="toggleDetail('<?php echo $no; ?>')">
-      <img src="logo_down.png" alt="expand">
-    </div>
-
-    <div class="detail-wrapper" id="detail-<?php echo $no; ?>">
-
-      <?php while ($b = mysqli_fetch_assoc($data_barang)):
-        $id_barang  = (int)$b['id_barang'];
-        $foto_bukti = trim($b['foto_bukti'] ?? '');
-        $foto_path  = 'uploads/' . $foto_bukti;
-        $foto_ada   = ($foto_bukti !== '' && file_exists($foto_path));
-      ?>
-
-      <div class="barang-box">
-
-        <div class="barang-title">Nama Barang</div>
-        <input class="barang-input"
-               value="<?php echo htmlspecialchars($b['nama_barang'], ENT_QUOTES, 'UTF-8'); ?>"
-               readonly>
-
-        <div class="barang-title">Jumlah</div>
-        <input class="barang-input"
-               value="<?php echo (int)$b['jumlah_barang']; ?>"
-               readonly>
-
-        <!-- FOTO BUKTI: tampilan box asli, klik buka lightbox -->
-        <div class="barang-title">Lampiran Bukti</div>
-        <?php if ($foto_ada): ?>
-          <button
-            type="button"
-            class="upload-box"
-            onclick="bukaLightbox(
-              '<?php echo htmlspecialchars($foto_path, ENT_QUOTES, 'UTF-8'); ?>',
-              '<?php echo htmlspecialchars($foto_bukti, ENT_QUOTES, 'UTF-8'); ?>'
-            )"
-            title="Klik untuk melihat foto">
-            🖼️ <?php echo htmlspecialchars($foto_bukti, ENT_QUOTES, 'UTF-8'); ?>
-          </button>
-        <?php else: ?>
-          <div class="upload-box no-foto">
-            <?php echo $foto_bukti !== '' ? 'File tidak ditemukan.' : 'Tidak ada file'; ?>
-          </div>
-        <?php endif; ?>
-
-        <div class="barang-title">Keterangan / Keluhan</div>
-        <textarea name="alasan[]" class="barang-input"><?php
-          echo htmlspecialchars($b['keterangan'] ?? '', ENT_QUOTES, 'UTF-8');
-        ?></textarea>
-
-        <input type="hidden" name="id_barang[]"    value="<?php echo $id_barang; ?>">
-        <input type="hidden" name="jenis_retur[]"  value="<?php echo htmlspecialchars($b['jenis_barang'], ENT_QUOTES, 'UTF-8'); ?>">
-
+      <!-- Info nota (selalu tampil, readonly) -->
+      <div class="form-group">
+        <label>Nomor Nota</label>
+        <input value="<?php echo htmlspecialchars($n['nomor_nota'], ENT_QUOTES, 'UTF-8'); ?>" readonly>
       </div>
 
-      <?php endwhile; ?>
-
-      <!-- TANGGAPAN & TINDAK LANJUT -->
-      <div class="tanggapan-box">
-        <div class="barang-title">Tanggapan & Tindak Lanjut Supplier</div>
-        <textarea name="tanggapan" class="barang-input"></textarea>
-
-        <div class="barang-title">Lampiran Bukti Tindak Lanjut (Opsional)</div>
-        <label class="upload-tl" id="label-tl-<?php echo $no; ?>"
-               for="input-tl-<?php echo $no; ?>">
-          <span id="span-tl-<?php echo $no; ?>">Klik untuk upload dokumen (JPG/PNG/PDF, maks. 5MB)</span>
-        </label>
-        <input type="file" id="input-tl-<?php echo $no; ?>"
-               name="tindaklanjut"
-               accept="image/jpeg,image/png,application/pdf"
-               hidden
-               onchange="previewTL(this, <?php echo $no; ?>)">
+      <div class="form-group">
+        <label>Tanggal Nota</label>
+        <input value="<?php echo htmlspecialchars($n['tanggal_nota'], ENT_QUOTES, 'UTF-8'); ?>" readonly>
       </div>
 
-      <button class="submit-btn" type="submit" name="submit">
-        Simpan Data Retur Barang
-      </button>
+      <!-- Expand button dalam card -->
+      <div class="expand-btn inside" id="btn-inside-<?php echo $no; ?>"
+           onclick="toggleDetail('<?php echo $no; ?>')">
+        <img src="logo_down.png" alt="expand">
+      </div>
 
-    </div><!-- /detail-wrapper -->
+      <!-- DETAIL -->
+      <div class="detail-wrapper" id="detail-<?php echo $no; ?>">
+      <div class="detail-inner">
 
-  </div><!-- /card -->
+        <!-- Supplier (tampil saat expand) -->
+        <div class="form-group" style="margin-top:4px;">
+          <label>Nama Supplier</label>
+          <input value="<?php echo htmlspecialchars($n['supplier'], ENT_QUOTES, 'UTF-8'); ?>" readonly>
+        </div>
 
-  <!-- Expand button di luar card (setelah detail terbuka) -->
+        <!-- DAFTAR BARANG CACAT -->
+        <?php while ($b = mysqli_fetch_assoc($data_barang)):
+          $id_barang  = (int)$b['id_barang'];
+          $foto_bukti = trim($b['foto_bukti'] ?? '');
+          $foto_path  = 'uploads/' . $foto_bukti;
+          $foto_ada   = ($foto_bukti !== '' && file_exists($foto_path));
+        ?>
+
+        <div class="barang-box">
+
+          <div class="barang-title">Nama Barang</div>
+          <input class="barang-input"
+                 value="<?php echo htmlspecialchars($b['nama_barang'], ENT_QUOTES, 'UTF-8'); ?>"
+                 readonly>
+
+          <div class="barang-title">Jumlah</div>
+          <input class="barang-input"
+                 value="<?php echo (int)$b['jumlah_barang']; ?>"
+                 readonly>
+
+          <!-- Foto bukti: klik buka lightbox -->
+          <div class="barang-title">Lampiran Bukti</div>
+          <?php if ($foto_ada): ?>
+            <button
+              type="button"
+              class="upload-box"
+              onclick="bukaLightbox(
+                '<?php echo htmlspecialchars($foto_path, ENT_QUOTES, 'UTF-8'); ?>',
+                '<?php echo htmlspecialchars($foto_bukti, ENT_QUOTES, 'UTF-8'); ?>'
+              )"
+              title="Klik untuk melihat foto">
+              🖼️ <?php echo htmlspecialchars($foto_bukti, ENT_QUOTES, 'UTF-8'); ?>
+            </button>
+          <?php else: ?>
+            <div class="upload-box no-foto">
+              <?php echo $foto_bukti !== '' ? 'File tidak ditemukan.' : 'Tidak ada file'; ?>
+            </div>
+          <?php endif; ?>
+
+          <div class="barang-title">Keterangan / Keluhan</div>
+          <textarea name="alasan[]" class="barang-input"><?php
+            echo htmlspecialchars($b['keterangan'] ?? '', ENT_QUOTES, 'UTF-8');
+          ?></textarea>
+
+          <input type="hidden" name="id_barang[]"   value="<?php echo $id_barang; ?>">
+          <input type="hidden" name="jenis_retur[]" value="<?php echo htmlspecialchars($b['jenis_barang'], ENT_QUOTES, 'UTF-8'); ?>">
+
+        </div>
+
+        <?php endwhile; ?>
+
+        <!--
+          TANGGAPAN & TINDAK LANJUT
+          ─────────────────────────────────────────────────
+          Dua field ini sekarang BERADA di dalam form milik
+          nota ini saja, sehingga nilainya pasti terkirim
+          saat tombol submit card ini ditekan.
+        -->
+        <div class="tanggapan-box">
+
+          <label class="label-white">Tanggapan Supplier</label>
+          <textarea
+            name="tanggapan"
+            class="tanggapan-textarea"
+            placeholder="Tulis tanggapan supplier di sini..."></textarea>
+
+          <label class="label-white">Lampiran Bukti Tindak Lanjut (Opsional)</label>
+          <label class="upload-tl" id="label-tl-<?php echo $no; ?>"
+                 for="input-tl-<?php echo $no; ?>">
+            <span id="span-tl-<?php echo $no; ?>">📎 Klik untuk upload dokumen (JPG/PNG/PDF, maks. 5MB)</span>
+          </label>
+          <input type="file"
+                 id="input-tl-<?php echo $no; ?>"
+                 name="tindaklanjut"
+                 accept="image/jpeg,image/png,application/pdf"
+                 hidden
+                 onchange="previewTL(this, <?php echo $no; ?>)">
+
+        </div>
+
+        <button class="submit-btn" type="submit" name="submit">
+          Simpan Data Retur Barang
+        </button>
+
+      </div><!-- /detail-inner -->
+      </div><!-- /detail-wrapper -->
+
+    </div><!-- /card -->
+
+  </form><!-- form per-nota -->
+
+  <!-- Expand button di luar card -->
   <div class="expand-btn outside" id="btn-outside-<?php echo $no; ?>"
        onclick="toggleDetail('<?php echo $no; ?>')">
     <img src="logo_down.png" alt="collapse" style="transform:rotate(180deg);">
   </div>
 
-  <?php $no++; endwhile; ?>
-
-  </form>
-
-  <?php endif; ?>
+  <?php $no++; endwhile; endif; ?>
 
 </div><!-- /container -->
 
 <script>
-/* ── Toggle expand detail nota ── */
+/* ── Toggle expand / collapse ── */
 function toggleDetail(id) {
-  var detail    = document.getElementById("detail-"    + id);
-  var insideBtn = document.getElementById("btn-inside-" + id);
-  var outsideBtn= document.getElementById("btn-outside-"+ id);
-  var supplier  = document.getElementById("supplier-"  + id);
-  var card      = document.getElementById("card-"      + id);
+  var detail     = document.getElementById("detail-"     + id);
+  var insideBtn  = document.getElementById("btn-inside-" + id);
+  var outsideBtn = document.getElementById("btn-outside-"+ id);
+  var card       = document.getElementById("card-"       + id);
 
   detail.classList.toggle("show");
   if (card) card.classList.toggle("expanded");
@@ -791,19 +865,19 @@ function toggleDetail(id) {
   if (detail.classList.contains("show")) {
     insideBtn.style.display  = "none";
     outsideBtn.style.display = "flex";
-    if (supplier) supplier.style.display = "block";
   } else {
     insideBtn.style.display  = "flex";
     outsideBtn.style.display = "none";
-    if (supplier) supplier.style.display = "none";
   }
 }
 
 /* ── Tutup / sembunyikan card ── */
 function tutupCard(id) {
-  var card     = document.getElementById("card-" + id);
-  var outside  = document.getElementById("btn-outside-" + id);
-  if (card)    card.style.display    = "none";
+  var card    = document.getElementById("card-"       + id);
+  var outside = document.getElementById("btn-outside-"+ id);
+  /* Cari dan sembunyikan form pembungkusnya */
+  var form = card ? card.closest("form") : null;
+  if (form)    form.style.display    = "none";
   if (outside) outside.style.display = "none";
 }
 

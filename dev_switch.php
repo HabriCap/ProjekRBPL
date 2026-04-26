@@ -33,7 +33,7 @@ if (isset($_GET['role']) && in_array($_GET['role'], $allowed_roles, true)) {
     $dashboards = [
         'admin'   => 'User_Admin.php',
         'kasir'   => 'User_kasir.php',
-        'manager' => 'User_Manager.php',
+        'manager' => 'User_Manajer.php',
     ];
 
     header("Location: " . $dashboards[$role]);
@@ -403,7 +403,7 @@ body {
                 <?php if ($current_role === 'manager'): ?>
                     <span class="active-pill">aktif</span>
                 <?php else: ?>
-                    <span class="role-target">User_Manager.php</span>
+                    <span class="role-target">User_Manajer.php</span>
                 <?php endif; ?>
             </div>
         </a>
